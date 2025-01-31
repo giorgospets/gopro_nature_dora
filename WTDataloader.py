@@ -19,7 +19,7 @@ class DecordInit(object):
         self.kwargs = kwargs
         
     def __call__(self, filename):
-        
+        print(f"Loading video: {filename}")
         reader = decord.VideoReader(filename,
                                     ctx=self.ctx,
                                     num_threads=self.num_threads)
