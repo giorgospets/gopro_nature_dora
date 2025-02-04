@@ -28,7 +28,7 @@ def load_datasets():
     ])
 
 
-    dataset_path = "../data/cifar-10"
+    dataset_path = "./data/cifar-10"
     cifar10_dataset = datasets.CIFAR10(root=dataset_path, train=True, download=False)
 
     # Split the dataset into train, val, and test sets

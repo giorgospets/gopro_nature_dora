@@ -22,11 +22,10 @@ import utils
 import vision_transformer as vits
 from vision_transformer import DINOHead
 
-
-from WTDataloader import WT_dataset_1vid
+from custom_dataset import CustomDataset
 from einops import rearrange, reduce, repeat
 import torchvision
-
+from video_preprocessing import VideoPreprocessor
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -130,6 +129,8 @@ def get_args_parser():
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
+    parser.add_argument("--from_start", default=True, type=utils.bool_flag, help="True if we want to preprocess the videos from start, False if they are preprocessed(Need the same arguments)")
+    parser.add_argument("--preprocessed_dataset_path", default='preprocessed_dataset/dataset.hdf5', type=str, help="Path to preproccesed videos")
     return parser
 
 
@@ -146,25 +147,28 @@ def train_dino(args):
         args.local_crops_scale,
         args.local_crops_number,
     )
+    if args.from_start:
+        video_preprocessor = VideoPreprocessor(
+            videos_input_path="videos/gopro/DCIM/100GOPRO/raw",
+            frame_per_clip=args.frame_per_clip,
+            step_between_clips=args.step_between_clips,
+            transform=transform,
+            output_filepath=args.preprocessed_dataset_path
+            )
+        video_preprocessor.preprocess_videos()    
     
     
-    
-    dataset = WT_dataset_1vid(args.data_path, 
-                args.frame_per_clip,  
-                args.step_between_clips,
-                transform=transform) 
+    dataset = CustomDataset(args.preprocessed_dataset_path) 
 
-
-    sampler = torch.utils.data.DistributedSampler(dataset, shuffle=True)
     data_loader = torch.utils.data.DataLoader(
         dataset,
-        sampler=sampler,
         batch_size=args.batch_size_per_gpu,
         num_workers=args.num_workers,
         pin_memory=True,
         drop_last=True,
+        shuffle=True,
     )
-    print(f"Data loaded: there are {len(dataset)} images.")
+    print(f"Data loaded: there are {len(dataset)} clips.")
 
 
 
@@ -274,7 +278,6 @@ def train_dino(args):
     start_time = time.time()
     print("Starting DINO training !")
     for epoch in range(start_epoch, args.epochs):
-        data_loader.sampler.set_epoch(epoch)
 
         # ============ training one epoch of DINO ... ============
 

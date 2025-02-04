@@ -57,7 +57,7 @@ class WT_dataset_1vid(torch.utils.data.Dataset):
     def __getitem__(self, index):
         while True:
             try:
-               
+
                 v_reader = self.v_decoder(self.path)
                 total_frames = len(v_reader)
                 
