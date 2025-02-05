@@ -4,6 +4,10 @@ import torch
 import numpy as np
 import h5py
 from tqdm import tqdm
+from logger import Logger
+
+
+logger = Logger(__name__)
 
 
 class DecordInit:
@@ -13,7 +17,7 @@ class DecordInit:
         self.kwargs = kwargs
         
     def __call__(self, filename):
-        print(f'\n#####\nLoading video: {filename}\n#####')
+        logger.info(f'\n#####\nLoading video: {filename}\n#####')
         reader = decord.VideoReader(
             filename,
             ctx=self.ctx,
@@ -58,12 +62,17 @@ class VideoPreprocessor:
         │   ├── 0       # Frames dataset for the teacher
         │   ├── 1       # Frames dataset for the student
         |   ├── 2       # Frames dataset for the student
-        │   └── ...     # Frames dataset for the student
+        │   ├──         .
+        |   ├──         . local_crops_number number of datasets for the student
+        |   ├──         .    
         └── 1/          # Group for the second clip of self.frame_per_clip frames
-            ├── 0       # Frames dataset for the teacher
-            ├── 1       # Frames dataset for the student
-            ├── 2       # Frames dataset for the student
-            └── ...     # Frames dataset for the student
+        │   ├── 0       # Frames dataset for the teacher
+        │   ├── 1       # Frames dataset for the student
+        │   ├── 2       # Frames dataset for the student
+        │   ├──         .
+        │   ├──         . local_crops_number number of datasets for the student
+        │   ├──         .
+            
         
         NOTE: self.frame_per_clip + 1 number of datasets are created for each group:
         - The first dataset is for the teacher
@@ -76,16 +85,15 @@ class VideoPreprocessor:
         Returns:
             str: Path to the updated preprocessed dataset
         """
-        clip_count = 0
-        
-        with h5py.File(self.output_filepath, "w") as f:
+        with h5py.File(self.output_filepath, "a") as f:
+            clip_count = len(f.keys())
             for video in os.listdir(self.videos_input_path):
                 video_path = os.path.join(self.videos_input_path, video)
                 v_decoder = DecordInit()
                 v_reader = v_decoder(video_path)
                 total_frames = len(v_reader)
         
-                print(f"Total Frames: {total_frames}")
+                logger.info(f"Total Frames: {total_frames}")
                 
                 start_idx = 0
                 end_idx = self.frame_per_clip * self.step_between_clips - 1
@@ -114,7 +122,7 @@ class VideoPreprocessor:
                     start_idx += 1
                     end_idx += 1
 
-        print('Preprocessing ended')
+        logger.info('Preprocessing ended')
         return None
     
 
