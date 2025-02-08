@@ -6,3 +6,5 @@ output/
 preprocessed_dataset/
 .vscode/
 data/
+output_cifar10/
+logs/

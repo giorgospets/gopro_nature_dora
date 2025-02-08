@@ -26,6 +26,7 @@ from custom_dataset import CustomDataset
 from einops import rearrange, reduce, repeat
 import torchvision
 from video_preprocessing import VideoPreprocessor
+from logger import Logger
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -34,6 +35,9 @@ warnings.filterwarnings('ignore')
 torchvision_archs = sorted(name for name in torchvision_models.__dict__
     if name.islower() and not name.startswith("__")
     and callable(torchvision_models.__dict__[name]))
+
+logger = Logger(__name__)
+
 
 def get_args_parser():
     parser = argparse.ArgumentParser('DINO', add_help=False)
@@ -137,8 +141,8 @@ def get_args_parser():
 def train_dino(args):
     utils.init_distributed_mode(args)
     utils.fix_random_seeds(args.seed)
-    print("git:\n  {}\n".format(utils.get_sha()))
-    print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
+    logger.info("git:\n  {}\n".format(utils.get_sha()))
+    logger.info("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
     cudnn.benchmark = True
 
     # ============ preparing data ... ============
@@ -149,14 +153,13 @@ def train_dino(args):
     )
     if args.from_start:
         video_preprocessor = VideoPreprocessor(
-            videos_input_path="videos/gopro/DCIM/100GOPRO/raw",
+            videos_input_path="videos/gopro/DCIM/100GOPRO/extras",
             frame_per_clip=args.frame_per_clip,
             step_between_clips=args.step_between_clips,
             transform=transform,
             output_filepath=args.preprocessed_dataset_path
-            )
+        )
         video_preprocessor.preprocess_videos()    
-    
     
     dataset = CustomDataset(args.preprocessed_dataset_path) 
 
@@ -168,7 +171,7 @@ def train_dino(args):
         drop_last=True,
         shuffle=True,
     )
-    print(f"Data loaded: there are {len(dataset)} clips.")
+    logger.info(f"Data loaded: there are {len(dataset)} clips.")
 
 
 
@@ -217,7 +220,7 @@ def train_dino(args):
     # there is no backpropagation through the teacher, so no need for gradients
     for p in teacher.parameters():
         p.requires_grad = False
-    print(f"Student and Teacher are built: they are both {args.arch} network.")
+    logger.info(f"Student and Teacher are built: they are both {args.arch} network.")
 
     # ============ preparing loss ... ============
     dino_loss = DINOLoss(
@@ -258,7 +261,7 @@ def train_dino(args):
     # momentum parameter is increased to 1. during training with a cosine schedule
     momentum_schedule = utils.cosine_scheduler(args.momentum_teacher, 1,
                                                args.epochs, len(data_loader))
-    print(f"Loss, optimizer and schedulers ready.")
+    logger.info(f"Loss, optimizer and schedulers ready.")
 
     # exit()
 
@@ -276,7 +279,7 @@ def train_dino(args):
     start_epoch = to_restore["epoch"]
     
     start_time = time.time()
-    print("Starting DINO training !")
+    logger.info("Starting DINO training !")
     for epoch in range(start_epoch, args.epochs):
 
         # ============ training one epoch of DINO ... ============
@@ -304,12 +307,14 @@ def train_dino(args):
             utils.save_on_master(save_dict, os.path.join(args.output_dir, f'checkpoint{epoch:04}.pth'))
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      'epoch': epoch}
+        logger.info_pprint("Stats:", log_stats)
+        
         if utils.is_main_process():
             with (Path(args.output_dir) / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-    print('Training time {}'.format(total_time_str))
+    logger.info('Training time {}'.format(total_time_str))
     
 
 
@@ -345,7 +350,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
             loss = dino_loss(student_local, student_masked_global, teacher_global, epoch)
 
         if not math.isfinite(loss.item()):
-            print("Loss is {}, stopping training".format(loss.item()), force=True)
+            logger.info("Loss is {}, stopping training".format(loss.item()), force=True)
             sys.exit(1)
 
         # student update
@@ -381,7 +386,7 @@ def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loade
         metric_logger.update(wd=optimizer.param_groups[0]["weight_decay"])
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
-    print("Averaged stats:", metric_logger)
+    logger.info(f"Averaged stats: {metric_logger}")
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
 
