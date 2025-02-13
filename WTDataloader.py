@@ -1,18 +1,12 @@
-from torchvision.datasets.utils import list_dir
-from torchvision.datasets.folder import make_dataset
-from torchvision.datasets.video_utils import VideoClips
-from torchvision.datasets import VisionDataset
-import torchvision
-import os
-from PIL import Image
+# NOTE: This is deprecated in out project. It was used in the original pipeline.
+
+
 import torch
 import decord
 import numpy as np
-import random
 
 
 class DecordInit(object):
-
     def __init__(self, num_threads=1, **kwargs):
         self.num_threads = num_threads
         self.ctx = decord.cpu(0)
@@ -32,23 +26,20 @@ class DecordInit(object):
         return repr_str
 
 class WT_dataset_1vid(torch.utils.data.Dataset):
-    
-
-    def __init__(self,
-                 video_path,
-                 num_frames,
-                 step_between_clips,
-                 transform=None):
-        
+    def __init__(
+        self,
+        video_path,
+        num_frames,
+        step_between_clips,
+        transform=None
+    ):
         self.path = video_path
-
         self.transform = transform
         self.num_frames = num_frames
         self.step_between_clips = step_between_clips
         self.v_decoder = DecordInit()
         v_reader = self.v_decoder(self.path)
         total_frames = len(v_reader)
-        
         self.total_frames = total_frames 
 
     def set_epoch(self, epoch):
@@ -57,14 +48,12 @@ class WT_dataset_1vid(torch.utils.data.Dataset):
     def __getitem__(self, index):
         while True:
             try:
-
                 v_reader = self.v_decoder(self.path)
                 total_frames = len(v_reader)
                 
                 # Sampling video frames
                 start_frame_ind = index 
                 end_frame_ind = start_frame_ind + (self.num_frames * self.step_between_clips)
-
 
                 frame_indice = np.arange(start_frame_ind, end_frame_ind, self.step_between_clips, dtype=int)
                 
@@ -84,5 +73,3 @@ class WT_dataset_1vid(torch.utils.data.Dataset):
 
     def __len__(self):
         return self.total_frames - (self.num_frames * self.step_between_clips)
-
-

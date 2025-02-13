@@ -1,0 +1,150 @@
+2025-02-06 00:07:05,918 - INFO - __main__ - arch: vit_small
+batch_size_per_gpu: 12
+clip_grad: 3.0
+data_path: /scratch/shashank/dataset/WT_videos/
+dist_url: env://
+drop_path_rate: 0.1
+epochs: 110
+frame_per_clip: 8
+freeze_last_layer: 1
+from_start: False
+global_crops_scale: (0.4, 1.0)
+gpu: 0
+local_crops_number: 2
+local_crops_scale: (0.05, 0.4)
+local_rank: 0
+lr: 0.0001
+min_lr: 1e-05
+momentum_teacher: 0.996
+norm_last_layer: False
+num_workers: 20
+optimizer: adamw
+out_dim: 65536
+output_dir: /home/giorgos/computer_vision/project/computer_vision_project/checkpoint
+patch_size: 16
+preprocessed_dataset_path: preprocessed_dataset/dataset.hdf5
+rank: 0
+saveckp_freq: 20
+seed: 0
+step_between_clips: 20
+teacher_temp: 0.04
+total_frames: 2000000.0
+use_bn_in_head: False
+use_fp16: True
+warmup_epochs: 1
+warmup_teacher_temp: 0.04
+warmup_teacher_temp_epochs: 1
+weight_decay: 0.04
+weight_decay_end: 0.4
+world_size: 1
+2025-02-06 00:07:05,928 - INFO - __main__ - Data loaded: there are 20970 clips.
+2025-02-06 00:07:06,463 - INFO - __main__ - Student and Teacher are built: they are both vit_small network.
+2025-02-06 00:07:06,467 - INFO - __main__ - Loss, optimizer and schedulers ready.
+2025-02-06 00:07:06,817 - INFO - __main__ - Starting DINO training !
+2025-02-06 00:27:57,156 - INFO - __main__ - Averaged stats: loss: 5.380744 (5.002564)  lr: 0.000010 (0.000010)  wd: 0.394078 (0.393409)
+2025-02-06 00:27:58,374 - INFO - __main__ - Stats:
+{'train_loss': 5.002564200961938,
+ 'train_lr': 9.900955077927139e-06,
+ 'train_wd': 0.3934089774661605,
+ 'epoch': 100}
+2025-02-06 00:48:44,201 - INFO - __main__ - Averaged stats: loss: 4.596537 (4.815832)  lr: 0.000010 (0.000010)  wd: 0.395315 (0.394716)
+2025-02-06 00:48:44,943 - INFO - __main__ - Stats:
+{'train_loss': 4.815832109948056,
+ 'train_lr': 9.920591405499525e-06,
+ 'train_wd': 0.39471581183034765,
+ 'epoch': 101}
+2025-02-06 01:09:53,670 - INFO - __main__ - Averaged stats: loss: 4.389152 (4.679089)  lr: 0.000010 (0.000010)  wd: 0.396408 (0.395880)
+2025-02-06 01:09:54,429 - INFO - __main__ - Stats:
+{'train_loss': 4.679088952408972,
+ 'train_lr': 9.938087286581082e-06,
+ 'train_wd': 0.3958801454723485,
+ 'epoch': 102}
+2025-02-06 01:31:04,394 - INFO - __main__ - Averaged stats: loss: 4.552826 (4.551058)  lr: 0.000010 (0.000010)  wd: 0.397358 (0.396901)
+2025-02-06 01:31:05,254 - INFO - __main__ - Stats:
+{'train_loss': 4.551058360489014,
+ 'train_lr': 9.953428188264621e-06,
+ 'train_wd': 0.3969010287449454,
+ 'epoch': 103}
+2025-02-06 01:52:04,100 - INFO - __main__ - Averaged stats: loss: 4.089154 (4.440833)  lr: 0.000010 (0.000010)  wd: 0.398163 (0.397778)
+2025-02-06 01:52:06,668 - INFO - __main__ - Stats:
+{'train_loss': 4.4408327754593335,
+ 'train_lr': 9.966601367670702e-06,
+ 'train_wd': 0.3977776290010945,
+ 'epoch': 104}
+2025-02-06 02:12:41,442 - INFO - __main__ - Averaged stats: loss: 4.345856 (4.348463)  lr: 0.000010 (0.000010)  wd: 0.398823 (0.398509)
+2025-02-06 02:12:42,297 - INFO - __main__ - Stats:
+{'train_loss': 4.348463459566244,
+ 'train_lr': 9.977595882532778e-06,
+ 'train_wd': 0.39850923127305676,
+ 'epoch': 105}
+2025-02-06 02:33:15,238 - INFO - __main__ - Averaged stats: loss: 3.934215 (4.277590)  lr: 0.000010 (0.000010)  wd: 0.399337 (0.399095)
+2025-02-06 02:33:16,062 - INFO - __main__ - Stats:
+{'train_loss': 4.277590345981535,
+ 'train_lr': 9.986402600286145e-06,
+ 'train_wd': 0.39909523885552334,
+ 'epoch': 106}
+2025-02-06 02:49:56,861 - INFO - __main__ - git:
+  sha: 34aa5fa9fae6e90c15b9ff3e91fadbd0486fcce6, status: has uncommited changes, branch: classifier-training
+
+2025-02-06 02:49:56,868 - INFO - __main__ - arch: vit_small
+batch_size_per_gpu: 12
+clip_grad: 3.0
+data_path: /scratch/shashank/dataset/WT_videos/
+dist_url: env://
+drop_path_rate: 0.1
+epochs: 110
+frame_per_clip: 8
+freeze_last_layer: 1
+from_start: False
+global_crops_scale: (0.4, 1.0)
+gpu: 0
+local_crops_number: 2
+local_crops_scale: (0.05, 0.4)
+local_rank: 0
+lr: 0.0001
+min_lr: 1e-05
+momentum_teacher: 0.996
+norm_last_layer: False
+num_workers: 20
+optimizer: adamw
+out_dim: 65536
+output_dir: /home/giorgos/computer_vision/project/computer_vision_project/checkpoint
+patch_size: 16
+preprocessed_dataset_path: preprocessed_dataset/dataset.hdf5
+rank: 0
+saveckp_freq: 20
+seed: 0
+step_between_clips: 20
+teacher_temp: 0.04
+total_frames: 2000000.0
+use_bn_in_head: False
+use_fp16: True
+warmup_epochs: 1
+warmup_teacher_temp: 0.04
+warmup_teacher_temp_epochs: 1
+weight_decay: 0.04
+weight_decay_end: 0.4
+world_size: 1
+2025-02-06 02:49:56,877 - INFO - __main__ - Data loaded: there are 20970 clips.
+2025-02-06 02:49:57,402 - INFO - __main__ - Student and Teacher are built: they are both vit_small network.
+2025-02-06 02:49:57,404 - INFO - __main__ - Loss, optimizer and schedulers ready.
+2025-02-06 02:49:57,748 - INFO - __main__ - Starting DINO training !
+2025-02-06 03:10:29,440 - INFO - __main__ - Averaged stats: loss: 4.712889 (4.217053)  lr: 0.000010 (0.000010)  wd: 0.399705 (0.399535)
+2025-02-06 03:10:30,152 - INFO - __main__ - Stats:
+{'train_loss': 4.217053087766196,
+ 'train_lr': 9.993014205654062e-06,
+ 'train_wd': 0.3995351737923057,
+ 'epoch': 107}
+2025-02-06 03:31:28,815 - INFO - __main__ - Averaged stats: loss: 3.886288 (4.183444)  lr: 0.000010 (0.000010)  wd: 0.399926 (0.399829)
+2025-02-06 03:31:29,618 - INFO - __main__ - Stats:
+{'train_loss': 4.183444207644012,
+ 'train_lr': 9.997425206724007e-06,
+ 'train_wd': 0.3998286772661566,
+ 'epoch': 108}
+2025-02-06 03:52:43,879 - INFO - __main__ - Averaged stats: loss: 4.075201 (4.156989)  lr: 0.000010 (0.000010)  wd: 0.400000 (0.399976)
+2025-02-06 03:52:44,722 - INFO - __main__ - Stats:
+{'train_loss': 4.156988911514086,
+ 'train_lr': 9.999631939509629e-06,
+ 'train_wd': 0.39997550989143515,
+ 'epoch': 109}
+2025-02-06 03:52:44,722 - INFO - __main__ - Training time 1:02:46

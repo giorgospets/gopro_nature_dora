@@ -12,6 +12,7 @@ from torchvision import models as torchvision_models
 
 import utils
 import vision_transformer as vits
+from load_datasets import load_datasets
 
 
 def extract_feature_pipeline(args):
@@ -22,12 +23,9 @@ def extract_feature_pipeline(args):
         pth_transforms.ToTensor(),
         pth_transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
     ])
-    dataset_train = ReturnIndexDataset(os.path.join(args.data_path, "train"), transform=transform)
-    dataset_val = ReturnIndexDataset(os.path.join(args.data_path, "val"), transform=transform)
-    sampler = torch.utils.data.DistributedSampler(dataset_train, shuffle=False)
+    dataset_train, dataset_val, dataset_test = load_datasets(args.dataset_name)
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train,
-        sampler=sampler,
         batch_size=args.batch_size_per_gpu,
         num_workers=args.num_workers,
         pin_memory=True,
@@ -67,9 +65,8 @@ def extract_feature_pipeline(args):
     if utils.get_rank() == 0:
         train_features = nn.functional.normalize(train_features, dim=1, p=2)
         test_features = nn.functional.normalize(test_features, dim=1, p=2)
-
-    train_labels = torch.tensor([s[-1] for s in dataset_train.samples]).long()
-    test_labels = torch.tensor([s[-1] for s in dataset_val.samples]).long()
+    train_labels = torch.tensor([s[-1] for s in dataset_train]).long()
+    test_labels = torch.tensor([s[-1] for s in dataset_val]).long()
     # save features and labels
     if args.dump_features and dist.get_rank() == 0:
         torch.save(train_features.cpu(), os.path.join(args.dump_features, "trainfeat.pth"))
@@ -198,7 +195,7 @@ if __name__ == '__main__':
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument("--local_rank", default=0, type=int, help="Please ignore and do not set this argument.")
-    parser.add_argument('--data_path', default='/path/to/imagenet/', type=str)
+    parser.add_argument('--dataset_name', default='intel', type=str, help='Name of the dataset to use')
     args = parser.parse_args()
 
     utils.init_distributed_mode(args)
