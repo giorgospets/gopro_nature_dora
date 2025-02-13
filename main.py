@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.distributed as dist
 import torch.backends.cudnn as cudnn
 import torch.nn.functional as F
-from torchvision import datasets, transforms
+from torchvision import transforms
 from torchvision import models as torchvision_models
 import torchvision.transforms._transforms_video as transforms_video
 import utils
@@ -23,8 +23,7 @@ import vision_transformer as vits
 from vision_transformer import DINOHead
 
 from custom_dataset import CustomDataset
-from einops import rearrange, reduce, repeat
-import torchvision
+from einops import rearrange
 from video_preprocessing import VideoPreprocessor
 from logger import Logger
 
@@ -162,7 +161,6 @@ def train_dino(args):
         video_preprocessor.preprocess_videos()    
     
     dataset = CustomDataset(args.preprocessed_dataset_path) 
-
     data_loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=args.batch_size_per_gpu,
@@ -173,12 +171,7 @@ def train_dino(args):
     )
     logger.info(f"Data loaded: there are {len(dataset)} clips.")
 
-
-
-
-
     args.arch = args.arch.replace("deit", "vit")
-
     student = vits.__dict__[args.arch](
         patch_size=args.patch_size,
         drop_path_rate=args.drop_path_rate,  # stochastic depth
@@ -197,9 +190,6 @@ def train_dino(args):
         teacher,
         DINOHead(embed_dim, args.out_dim, args.use_bn_in_head),
     )
-
-
-   
 
     # move networks to gpu
     student, teacher = student.cuda(), teacher.cuda()
@@ -263,8 +253,6 @@ def train_dino(args):
                                                args.epochs, len(data_loader))
     logger.info(f"Loss, optimizer and schedulers ready.")
 
-    # exit()
-
     # ============ optionally resume training ... ============
     to_restore = {"epoch": 0}
     utils.restart_from_checkpoint(
@@ -281,15 +269,10 @@ def train_dino(args):
     start_time = time.time()
     logger.info("Starting DINO training !")
     for epoch in range(start_epoch, args.epochs):
-
         # ============ training one epoch of DINO ... ============
-
-
         train_stats = train_one_epoch(student, teacher, teacher_without_ddp, dino_loss,
             data_loader, optimizer, lr_schedule, wd_schedule, momentum_schedule,
             epoch, fp16_scaler, args)
-
-
 
         # ============ writing logs ... ============
         save_dict = {
@@ -302,21 +285,25 @@ def train_dino(args):
         }
         if fp16_scaler is not None:
             save_dict['fp16_scaler'] = fp16_scaler.state_dict()
+            
         utils.save_on_master(save_dict, os.path.join(args.output_dir, 'checkpoint.pth'))
         if args.saveckp_freq and epoch % args.saveckp_freq == 0:
             utils.save_on_master(save_dict, os.path.join(args.output_dir, f'checkpoint{epoch:04}.pth'))
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                     'epoch': epoch}
+            
+        log_stats = {
+            **{f'train_{k}': v for k, v in train_stats.items()},
+            'epoch': epoch
+        }
         logger.info_pprint("Stats:", log_stats)
         
         if utils.is_main_process():
             with (Path(args.output_dir) / "log.txt").open("a") as f:
                 f.write(json.dumps(log_stats) + "\n")
+                
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
     
-
 
 def train_one_epoch(student, teacher, teacher_without_ddp, dino_loss, data_loader,
                     optimizer, lr_schedule, wd_schedule, momentum_schedule,epoch,
@@ -523,16 +510,7 @@ class DataAugmentationDINO(object):
             utils.GaussianBlur(0.1),
             normalize,
         ])
-        # second global crop
-        # self.global_transfo2 = transforms.Compose([
-        #     transforms.ToPILImage(),
-        #     # transforms.RandomResizedCrop(224, scale=global_crops_scale, interpolation=Image.BICUBIC),
-        #     flip_and_color_jitter,
-        #     utils.GaussianBlur(0.1),
-        #     utils.Solarization(0.2),
-        #     normalize,
-        # ])
-        # transformation for the local small crops
+
         self.local_crops_number = local_crops_number
         self.local_transfo = transforms.Compose([
             transforms.ToPILImage(),
@@ -547,13 +525,11 @@ class DataAugmentationDINO(object):
 
         # an aggresive cropping before DINO crops
         frames = self.init_aug(image)
-        
 
         gc_frame1 = self.vid_crop(frames).permute(1,0,2,3)
         # gc_frame2 = self.vid_crop(frames).permute(1,0,2,3)
 
         num_frame = gc_frame1.shape[0]
-        
         
         global_1 = torch.zeros(gc_frame1.shape)
         # global_2 = torch.zeros(gc_frame2.shape)

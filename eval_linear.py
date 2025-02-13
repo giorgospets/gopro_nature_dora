@@ -1,4 +1,3 @@
-
 import os
 import argparse
 import json
@@ -6,21 +5,21 @@ from pathlib import Path
 import sys
 import torch
 from torch import nn
-import torch.distributed as dist
 import torch.backends.cudnn as cudnn
-from torchvision import datasets
-from torchvision import transforms as pth_transforms
 from torchvision import models as torchvision_models
 from load_datasets import load_datasets
 
 import utils
 import vision_transformer as vits
 
+torch.manual_seed(42)
+
 
 def eval_linear(args):
-    utils.init_distributed_mode(args)
-    print("git:\n  {}\n".format(utils.get_sha()))
-    print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
+    # NOTE: Removed
+    # utils.init_distributed_mode(args)
+    # print("git:\n  {}\n".format(utils.get_sha()))
+    # print("\n".join("%s: %s" % (k, str(v)) for k, v in sorted(dict(vars(args)).items())))
     cudnn.benchmark = True
 
     # ============ building network ... ============
@@ -40,6 +39,7 @@ def eval_linear(args):
     else:
         print(f"Unknow architecture: {args.arch}")
         sys.exit(1)
+        
     model.cuda()
     model.eval()
     os.makedirs(args.output_dir, exist_ok=True)
@@ -49,10 +49,10 @@ def eval_linear(args):
 
     linear_classifier = LinearClassifier(embed_dim, num_labels=args.num_labels)
     linear_classifier = linear_classifier.cuda()
-    linear_classifier = nn.parallel.DistributedDataParallel(linear_classifier, device_ids=[args.gpu])
+    # linear_classifier = nn.parallel.DistributedDataParallel(linear_classifier, device_ids=[args.gpu])
 
     # ============ preparing data ... ============
-    dataset_train, dataset_val, _ = load_datasets()
+    dataset_train, dataset_val, dataset_test = load_datasets(args.dataset_name)
     
     val_loader = torch.utils.data.DataLoader(
         dataset_val,
@@ -62,21 +62,29 @@ def eval_linear(args):
     )
 
     if args.evaluate:
-        utils.load_pretrained_linear_weights(linear_classifier, args.arch, args.patch_size)
-        test_stats = validate_network(val_loader, model, linear_classifier, args.n_last_blocks, args.avgpool_patchtokens)
-        print(f"Accuracy of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
-        return
+        test_loader = torch.utils.data.DataLoader(
+            dataset_test,
+            batch_size=args.batch_size_per_gpu,
+            num_workers=args.num_workers,
+            pin_memory=True,
+        )
+
+        # utils.load_pretrained_linear_weights(linear_classifier, args.arch, args.patch_size)
+        utils.load_pretrained_linear_weights(linear_classifier, os.path.join(args.output_dir, "checkpoint.pth.tar"))
+        test_stats = check_accuracy_per_class(test_loader, model, linear_classifier, args.n_last_blocks, args.avgpool_patchtokens, args.arch, labels_mapping = dataset_test.label_mapping)
+        print(test_stats)
+        return 
     
-    sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
+    # sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
     
     train_loader = torch.utils.data.DataLoader(
         dataset_train,
-        sampler=sampler,
+        # sampler=sampler,
         batch_size=args.batch_size_per_gpu,
         num_workers=args.num_workers,
         pin_memory=True,
     )
-    print(f"Data loaded with {len(dataset_train)} train and {len(dataset_val)} val imgs.")
+    # print(f"Data loaded with {len(dataset_train)} train and {len(dataset_val)} val imgs.")
 
     # set optimizer
     optimizer = torch.optim.SGD(
@@ -100,15 +108,15 @@ def eval_linear(args):
     best_acc = to_restore["best_acc"]
 
     for epoch in range(start_epoch, args.epochs):
-        train_loader.sampler.set_epoch(epoch)
+        # train_loader.sampler.set_epoch(epoch)
 
-        train_stats = train(model, linear_classifier, optimizer, train_loader, epoch, args.n_last_blocks, args.avgpool_patchtokens)
+        train_stats = train(model, linear_classifier, optimizer, train_loader, epoch, args.n_last_blocks, args.avgpool_patchtokens, args.arch)
         scheduler.step()
 
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                      'epoch': epoch}
         if epoch % args.val_freq == 0 or epoch == args.epochs - 1:
-            test_stats = validate_network(val_loader, model, linear_classifier, args.n_last_blocks, args.avgpool_patchtokens)
+            test_stats = validate_network(val_loader, model, linear_classifier, args.n_last_blocks, args.avgpool_patchtokens, args.arch)
             print(f"Accuracy at epoch {epoch} of the network on the {len(dataset_val)} test images: {test_stats['acc1']:.1f}%")
             best_acc = max(best_acc, test_stats["acc1"])
             print(f'Max accuracy so far: {best_acc:.2f}%')
@@ -127,9 +135,10 @@ def eval_linear(args):
             torch.save(save_dict, os.path.join(args.output_dir, "checkpoint.pth.tar"))
     print("Training of the supervised linear classifier on frozen features completed.\n"
                 "Top-1 test accuracy: {acc:.1f}".format(acc=best_acc))
+    return best_acc
 
 
-def train(model, linear_classifier, optimizer, loader, epoch, n, avgpool):
+def train(model, linear_classifier, optimizer, loader, epoch, n, avgpool, arch):
     linear_classifier.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter('lr', utils.SmoothedValue(window_size=1, fmt='{value:.6f}'))
@@ -141,7 +150,7 @@ def train(model, linear_classifier, optimizer, loader, epoch, n, avgpool):
 
         # forward
         with torch.no_grad():
-            if "vit" in args.arch:
+            if "vit" in arch:
                 intermediate_output = model.get_intermediate_layers(inp, n)
                 output = torch.cat([x[:, 0] for x in intermediate_output], dim=-1)
                 if avgpool:
@@ -170,9 +179,45 @@ def train(model, linear_classifier, optimizer, loader, epoch, n, avgpool):
     print("Averaged stats:", metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
 
+@torch.no_grad()
+def check_accuracy_per_class(loader, model, linear_classifier, n, avgpool, arch, labels_mapping):
+    num_classes = len(labels_mapping)
+    breakpoint()
+    linear_classifier.eval()
+    correct = torch.zeros(num_classes, device='cuda')
+    total = torch.zeros(num_classes, device='cuda')
+    
+    with torch.no_grad():
+        for inp, target in loader:
+            inp = inp.cuda(non_blocking=True)
+            target = target.cuda(non_blocking=True)
+
+            if "vit" in arch:
+                intermediate_output = model.get_intermediate_layers(inp, n)
+                output = torch.cat([x[:, 0] for x in intermediate_output], dim=-1)
+                if avgpool:
+                    output = torch.cat((output.unsqueeze(-1), torch.mean(intermediate_output[-1][:, 1:], dim=1).unsqueeze(-1)), dim=-1)
+                    output = output.reshape(output.shape[0], -1)
+            else:
+                output = model(inp)
+
+            output = linear_classifier(output)
+            preds = output.argmax(dim=1)
+
+            for i in range(num_classes):
+                mask = target == i
+                correct[i] += (preds[mask] == i).sum()
+                total[i] += mask.sum()
+    reversed_labels_mapping = {}
+    for key, value in labels_mapping.items():
+        reversed_labels_mapping[value] = key
+    accuracies = {reversed_labels_mapping[i]: (correct[i] / total[i]).item() if total[i] > 0 else 0.0 for i in range(num_classes)}
+    accuracies['total'] = float(sum(correct[i] for i in range(num_classes)) /sum(total[i] for i in range(num_classes)))
+    return accuracies
+
 
 @torch.no_grad()
-def validate_network(val_loader, model, linear_classifier, n, avgpool):
+def validate_network(val_loader, model, linear_classifier, n, avgpool, arch):
     linear_classifier.eval()
     metric_logger = utils.MetricLogger(delimiter="  ")
     header = 'Test:'
@@ -183,7 +228,7 @@ def validate_network(val_loader, model, linear_classifier, n, avgpool):
 
         # forward
         with torch.no_grad():
-            if "vit" in args.arch:
+            if "vit" in arch:
                 intermediate_output = model.get_intermediate_layers(inp, n)
                 output = torch.cat([x[:, 0] for x in intermediate_output], dim=-1)
                 if avgpool:
@@ -194,7 +239,7 @@ def validate_network(val_loader, model, linear_classifier, n, avgpool):
         output = linear_classifier(output)
         loss = nn.CrossEntropyLoss()(output, target)
 
-        if linear_classifier.module.num_labels >= 5:
+        if linear_classifier.num_labels >= 5:
             acc1, acc5 = utils.accuracy(output, target, topk=(1, 5))
         else:
             acc1, = utils.accuracy(output, target, topk=(1,))
@@ -202,9 +247,9 @@ def validate_network(val_loader, model, linear_classifier, n, avgpool):
         batch_size = inp.shape[0]
         metric_logger.update(loss=loss.item())
         metric_logger.meters['acc1'].update(acc1.item(), n=batch_size)
-        if linear_classifier.module.num_labels >= 5:
+        if linear_classifier.num_labels >= 5:
             metric_logger.meters['acc5'].update(acc5.item(), n=batch_size)
-    if linear_classifier.module.num_labels >= 5:
+    if linear_classifier.num_labels >= 5:
         print('* Acc@1 {top1.global_avg:.3f} Acc@5 {top5.global_avg:.3f} loss {losses.global_avg:.3f}'
           .format(top1=metric_logger.acc1, top5=metric_logger.acc5, losses=metric_logger.loss))
     else:
@@ -256,6 +301,9 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', default=".", help='Path to save logs and checkpoints')
     parser.add_argument('--num_labels', default=1000, type=int, help='Number of labels for linear classifier')
     parser.add_argument('--evaluate', dest='evaluate', action='store_true', help='evaluate model on validation set')
+    
+    # NOTE: Added 
+    parser.add_argument('--dataset_name', default='intel', type=str, help='Name of the dataset to use')
     args = parser.parse_args()
     print("Epochs: ", args.epochs)
     eval_linear(args)

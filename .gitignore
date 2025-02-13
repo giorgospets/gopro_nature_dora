@@ -1,10 +1,9 @@
 checkpoint/
 videos/
 __pycache__/
-checkpoint_DoRA_100_WT-all.pth
 output/
 preprocessed_dataset/
 .vscode/
 data/
-output_cifar10/
+output_*/
 logs/
