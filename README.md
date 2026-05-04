@@ -1,4 +1,4 @@
-# DoRA - Finetuned for Nature Video Classification
+# DoRA - Fine-tuned for Nature Using Egocentric GoPro Videos
 
 This repository is a clone of [DoRA](https://shashankvkt.github.io/dora) (ICLR 2024), from the paper *"Is ImageNet worth 1 video? Learning strong image encoders from 1 long unlabelled video"* by Venkataramanan et al.
 
@@ -18,7 +18,7 @@ The original DoRA model was pretrained on urban-oriented, egocentric WalkingTour
 
 ### Our dataset
 
-We captured our own videos using a GoPro Hero10 -- multiple egocentric, 4K/5K 30fps clips (seconds to minutes long each) featuring nature scenes: sea, mountains, trees, animals, and combinations thereof.
+We captured our own videos using a GoPro Hero10 Black -- multiple egocentric, 4K/5K 30fps clips (seconds to minutes long each) featuring nature scenes: sea, mountains, trees, animals, and combinations thereof.
 
 ### Approach
 
